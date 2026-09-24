@@ -1,0 +1,10 @@
+node_modules/
+.wrangler/
+dev.log
+dev.err.log
+.tmp-*
+verify-grid.png
+*.zip
+
+# 运行期生成的站点配置(含备案号/友链/声明文案),不要进仓库
+api/data/config.json

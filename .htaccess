@@ -1,0 +1,71 @@
+# ---- 卡面设计工作台 · 纯 PHP 版(Apache / LiteSpeed 虚拟主机) ----
+# 上传到站点根目录,与 index.php 同级
+# 本包已移除 index.html / admin.html,入口唯一
+
+# PHP 入口唯一
+DirectoryIndex index.php
+
+# 关键:PHP 以 CGI/FastCGI 运行时 Authorization 头会被服务器剥离,
+# 会导致后台"登录成功但保存 401",这两条必须保留
+<IfModule mod_setenvif.c>
+  SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+</IfModule>
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+
+# 禁止目录列表
+Options -Indexes
+
+# 保护配置数据与日志,不允许直接下载
+<IfModule mod_authz_core.c>
+  <FilesMatch "(config\.json|\.log)$">
+    Require all denied
+  </FilesMatch>
+</IfModule>
+<IfModule !mod_authz_core.c>
+  <FilesMatch "(config\.json|\.log)$">
+    Deny from all
+  </FilesMatch>
+</IfModule>
+RedirectMatch 404 ^/api/data/
+
+# 压缩
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/plain \
+    text/javascript application/javascript application/json image/svg+xml
+</IfModule>
+
+# 缓存:卡面素材长缓存,JS/CSS 短缓存(更新后刷新一次即可)
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault "access plus 1 hour"
+  ExpiresByType image/jpeg  "access plus 30 days"
+  ExpiresByType image/png   "access plus 30 days"
+  ExpiresByType image/webp  "access plus 30 days"
+  ExpiresByType image/svg+xml "access plus 30 days"
+  ExpiresByType text/css    "access plus 1 hour"
+  ExpiresByType application/javascript "access plus 1 hour"
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(jpe?g|png|webp|svg)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+  <FilesMatch "\.(js|css)$">
+    Header set Cache-Control "public, max-age=3600"
+  </FilesMatch>
+</IfModule>
+
+# /admin 短地址跳转后台
+Redirect 302 /admin /admin.php
+
+# 前端已直接请求 .php 路径,不依赖下面这些规则;
+# 主机若支持 rewrite,可让无后缀路径同样可用
+<IfModule mod_rewrite.c>
+  RewriteRule ^api/config$              api/config.php       [L,QSA]
+  RewriteRule ^api/admin/login$         api/admin/login.php  [L,QSA]
+  RewriteRule ^api/admin/config$        api/admin/config.php [L,QSA]
+  RewriteRule ^api/random-card(\.php)?$ api/random-card.php  [L,QSA]
+</IfModule>
